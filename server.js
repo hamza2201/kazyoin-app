@@ -11,15 +11,11 @@ const dbPath = path.join('/tmp', 'database.json');
 // إعداد الخادم
 app.use(express.json());
 
-// --- هذا هو الجزء الذي تم إصلاحه ---
-// Vercel تقوم بنسخ محتويات مجلد public إلى جذر المشروع عند النشر
-// لذلك نخبر الخادم صراحة بتقديم هذه الملفات
+// Tell Express where to find static files (HTML, CSS, JS)
 const publicPath = path.resolve(process.cwd(), 'public');
 app.use(express.static(publicPath));
-// ------------------------------------
 
-
-// دالة لتهيئة قاعدة البيانات في Vercel
+// دالة لتهيئة قاعدة البيانات
 function initializeDatabase() {
     if (!fs.existsSync(dbPath)) {
         console.log("Creating database file at:", dbPath);
@@ -80,6 +76,40 @@ app.post('/api/tasks/toggle', (req, res) => {
         res.status(404).json({ message: 'لم يتم العثور على المهمة' });
     }
 });
+
+// === الكود الذي تمت إضافته من جديد ===
+
+// API لتغيير حالة الإجازة (بكلمة سر)
+app.post('/api/leave', (req, res) => {
+    const { employeeId, password } = req.body;
+    if (password !== MANAGER_PASSWORD) return res.status(401).json({ message: 'كلمة السر خاطئة' });
+    const data = readData();
+    const employee = data.employees.find(e => e.id === employeeId);
+    if (employee) {
+        employee.onLeave = !employee.onLeave;
+        writeData(data);
+        res.json(employee);
+    } else {
+        res.status(404).json({ message: 'لم يتم العثور على الموظف' });
+    }
+});
+
+// API لحذف مهمة (بكلمة سر)
+app.delete('/api/tasks/delete', (req, res) => {
+    const { employeeId, taskId, password } = req.body;
+    if (password !== MANAGER_PASSWORD) return res.status(401).json({ message: 'كلمة السر خاطئة' });
+
+    const data = readData();
+    const employee = data.employees.find(e => e.id === employeeId);
+    if (employee) {
+        employee.tasks = employee.tasks.filter(t => t.id !== taskId);
+        writeData(data);
+        res.status(200).json({ message: 'تم حذف المهمة' });
+    } else {
+        res.status(404).json({ message: 'لم يتم العثور على الموظف' });
+    }
+});
+
 
 // تصدير التطبيق لمنصة Vercel
 module.exports = app;
