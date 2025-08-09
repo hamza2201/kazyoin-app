@@ -34,7 +34,7 @@ async function initializeDatabase() {
             );
         `;
         
-        // إضافة الموظفين الأساسيين إذا لم يكونوا موجودين
+        // إضافة الموظفين الأساسيين والتأكد من وجودهم
         const employees = [
             { id: 1, name: 'سجدة', shift: 'morning' },
             { id: 2, name: 'بسمة', shift: 'morning' },
@@ -45,13 +45,14 @@ async function initializeDatabase() {
         ];
 
         for (const emp of employees) {
+            // === هذا هو السطر الذي تم تعديله ليقوم بالتحديث أو الإضافة ===
             await sql`
                 INSERT INTO employees (id, name, shift)
                 VALUES (${emp.id}, ${emp.name}, ${emp.shift})
-                ON CONFLICT (id) DO NOTHING;
+                ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, shift = EXCLUDED.shift;
             `;
         }
-        console.log('Database initialized successfully.');
+        console.log('Database schema and employees verified successfully.');
     } catch (error) {
         console.error('Error initializing database:', error);
     }
@@ -145,10 +146,6 @@ app.delete('/api/tasks/delete', async (req, res) => {
     }
 });
 
-
-// وظيفة التنظيف التلقائي اليومية (غير مدعومة مباشرة في بيئة Vercel Serverless)
-// يمكن استبدالها بـ "Vercel Cron Jobs"
-// حالياً، سنعتمد على الحذف اليدوي للمهام.
 
 // تصدير التطبيق لمنصة Vercel
 module.exports = app;
