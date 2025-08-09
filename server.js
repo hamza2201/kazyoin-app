@@ -1,115 +1,154 @@
 const express = require('express');
-const fs = require('fs');
+const { sql } = require('@vercel/postgres');
 const path = require('path');
 
 const app = express();
-
-const MANAGER_PASSWORD = process.env.MANAGER_PASSWORD || 'kazyoin-admin-2025';
-// المسار الصحيح والم الوحيد الذي يمكن الكتابة فيه على Vercel
-const dbPath = path.join('/tmp', 'database.json'); 
-
-// إعداد الخادم
 app.use(express.json());
 
-// Tell Express where to find static files (HTML, CSS, JS)
+const MANAGER_PASSWORD = process.env.MANAGER_PASSWORD || 'kazyoin-admin-2025';
+
+// Serve static files from the 'public' directory
 const publicPath = path.resolve(process.cwd(), 'public');
 app.use(express.static(publicPath));
 
-// دالة لتهيئة قاعدة البيانات
-function initializeDatabase() {
-    if (!fs.existsSync(dbPath)) {
-        console.log("Creating database file at:", dbPath);
-        const initialData = {
-            employees: [
-                { id: 1, name: 'سجدة', shift: 'morning', onLeave: false, tasks: [] },
-                { id: 2, name: 'بسمة', shift: 'morning', onLeave: false, tasks: [] },
-                { id: 3, name: 'محمد', shift: 'morning', onLeave: false, tasks: [] },
-                { id: 4, name: 'عبدالرحمن', shift: 'night', onLeave: false, tasks: [] },
-                { id: 5, name: 'أحمد', shift: 'night', onLeave: false, tasks: [] },
-                { id: 6, name: 'إبراهيم', shift: 'night', onLeave: false, tasks: [] }
-            ]
-        };
-        fs.writeFileSync(dbPath, JSON.stringify(initialData, null, 2));
+
+// دالة لإنشاء الجداول وإدخال الموظفين لأول مرة فقط
+async function initializeDatabase() {
+    try {
+        // إنشاء جدول الموظفين إذا لم يكن موجوداً
+        await sql`
+            CREATE TABLE IF NOT EXISTS employees (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                shift VARCHAR(50) NOT NULL,
+                on_leave BOOLEAN DEFAULT FALSE
+            );
+        `;
+        // إنشاء جدول المهام إذا لم يكن موجوداً
+        await sql`
+            CREATE TABLE IF NOT EXISTS tasks (
+                id BIGINT PRIMARY KEY,
+                text TEXT NOT NULL,
+                completed BOOLEAN DEFAULT FALSE,
+                employee_id INTEGER REFERENCES employees(id)
+            );
+        `;
+        
+        // إضافة الموظفين الأساسيين إذا لم يكونوا موجودين
+        const employees = [
+            { id: 1, name: 'سجدة', shift: 'morning' },
+            { id: 2, name: 'بسمة', shift: 'morning' },
+            { id: 3, name: 'محمد', shift: 'morning' },
+            { id: 4, name: 'عبدالرحمن', shift: 'night' },
+            { id: 5, name: 'أحمد', shift: 'night' },
+            { id: 6, name: 'إبراهيم', shift: 'night' }
+        ];
+
+        for (const emp of employees) {
+            await sql`
+                INSERT INTO employees (id, name, shift)
+                VALUES (${emp.id}, ${emp.name}, ${emp.shift})
+                ON CONFLICT (id) DO NOTHING;
+            `;
+        }
+        console.log('Database initialized successfully.');
+    } catch (error) {
+        console.error('Error initializing database:', error);
     }
 }
-
-// قراءة وكتابة البيانات
-function readData() {
-    initializeDatabase();
-    const data = fs.readFileSync(dbPath, 'utf-8');
-    return JSON.parse(data);
-}
-function writeData(data) {
-    fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
-}
+// تهيئة قاعدة البيانات عند بدء تشغيل الخادم
+initializeDatabase();
 
 // ----- نقاط الوصول (APIs) -----
 
-app.get('/api/data', (req, res) => {
-    res.json(readData());
+// جلب كل البيانات
+app.get('/api/data', async (req, res) => {
+    try {
+        const { rows: employees } = await sql`SELECT id, name, shift, on_leave FROM employees ORDER BY id`;
+        const { rows: tasks } = await sql`SELECT id, text, completed, employee_id FROM tasks`;
+
+        employees.forEach(emp => {
+            emp.onLeave = emp.on_leave; // ليتوافق مع الواجهة
+            emp.tasks = tasks.filter(task => task.employee_id === emp.id);
+        });
+
+        res.json({ employees });
+    } catch (error) {
+        console.error('Failed to fetch data:', error);
+        res.status(500).json({ message: 'Error fetching data' });
+    }
 });
 
-app.post('/api/tasks', (req, res) => {
+// إضافة مهمة
+app.post('/api/tasks', async (req, res) => {
     const { employeeId, taskText, password } = req.body;
     if (password !== MANAGER_PASSWORD) return res.status(401).json({ message: 'كلمة السر خاطئة' });
-    const data = readData();
-    const employee = data.employees.find(e => e.id === employeeId);
-    if (employee) {
-        employee.tasks.push({ id: Date.now(), text: taskText, completed: false });
-        writeData(data);
-        res.status(201).json(employee);
-    } else {
-        res.status(404).json({ message: 'لم يتم العثور على الموظف' });
+    
+    try {
+        const taskId = Date.now();
+        await sql`
+            INSERT INTO tasks (id, text, employee_id)
+            VALUES (${taskId}, ${taskText}, ${employeeId});
+        `;
+        res.status(201).json({ message: 'Task added' });
+    } catch (error) {
+        console.error('Failed to add task:', error);
+        res.status(500).json({ message: 'Error adding task' });
     }
 });
 
-app.post('/api/tasks/toggle', (req, res) => {
+// تغيير حالة المهمة (إتمامها)
+app.post('/api/tasks/toggle', async (req, res) => {
     const { employeeId, taskId } = req.body;
-    const data = readData();
-    const employee = data.employees.find(e => e.id === employeeId);
-    const task = employee?.tasks.find(t => t.id === taskId);
-    if (task) {
-        task.completed = !task.completed;
-        writeData(data);
-        res.json(task);
-    } else {
-        res.status(404).json({ message: 'لم يتم العثور على المهمة' });
+    try {
+        await sql`
+            UPDATE tasks
+            SET completed = NOT completed
+            WHERE id = ${taskId} AND employee_id = ${employeeId};
+        `;
+        res.status(200).json({ message: 'Task toggled' });
+    } catch (error) {
+        console.error('Failed to toggle task:', error);
+        res.status(500).json({ message: 'Error toggling task' });
     }
 });
 
-// === الكود الذي تمت إضافته من جديد ===
-
-// API لتغيير حالة الإجازة (بكلمة سر)
-app.post('/api/leave', (req, res) => {
+// تغيير حالة الإجازة
+app.post('/api/leave', async (req, res) => {
     const { employeeId, password } = req.body;
     if (password !== MANAGER_PASSWORD) return res.status(401).json({ message: 'كلمة السر خاطئة' });
-    const data = readData();
-    const employee = data.employees.find(e => e.id === employeeId);
-    if (employee) {
-        employee.onLeave = !employee.onLeave;
-        writeData(data);
-        res.json(employee);
-    } else {
-        res.status(404).json({ message: 'لم يتم العثور على الموظف' });
+
+    try {
+        await sql`
+            UPDATE employees
+            SET on_leave = NOT on_leave
+            WHERE id = ${employeeId};
+        `;
+        res.status(200).json({ message: 'Leave status updated' });
+    } catch (error) {
+        console.error('Failed to update leave status:', error);
+        res.status(500).json({ message: 'Error updating leave status' });
     }
 });
 
-// API لحذف مهمة (بكلمة سر)
-app.delete('/api/tasks/delete', (req, res) => {
-    const { employeeId, taskId, password } = req.body;
+// حذف مهمة
+app.delete('/api/tasks/delete', async (req, res) => {
+    const { taskId, password } = req.body;
     if (password !== MANAGER_PASSWORD) return res.status(401).json({ message: 'كلمة السر خاطئة' });
 
-    const data = readData();
-    const employee = data.employees.find(e => e.id === employeeId);
-    if (employee) {
-        employee.tasks = employee.tasks.filter(t => t.id !== taskId);
-        writeData(data);
-        res.status(200).json({ message: 'تم حذف المهمة' });
-    } else {
-        res.status(404).json({ message: 'لم يتم العثور على الموظف' });
+    try {
+        await sql`DELETE FROM tasks WHERE id = ${taskId};`;
+        res.status(200).json({ message: 'Task deleted' });
+    } catch (error) {
+        console.error('Failed to delete task:', error);
+        res.status(500).json({ message: 'Error deleting task' });
     }
 });
 
+
+// وظيفة التنظيف التلقائي اليومية (غير مدعومة مباشرة في بيئة Vercel Serverless)
+// يمكن استبدالها بـ "Vercel Cron Jobs"
+// حالياً، سنعتمد على الحذف اليدوي للمهام.
 
 // تصدير التطبيق لمنصة Vercel
 module.exports = app;
