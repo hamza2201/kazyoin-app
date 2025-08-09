@@ -29,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = `employee-card ${emp.onLeave ? 'on-leave' : ''}`;
             card.dataset.employeeId = emp.id;
 
-            // === UPDATED TASK HTML WITH CHECKBOX ===
             let tasksHTML = emp.tasks.map(task => `
                 <li class="${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
                     <input type="checkbox" ${task.completed ? 'checked' : ''}>
@@ -60,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!employeeCard) return;
         const employeeId = parseInt(employeeCard.dataset.employeeId);
 
-        // --- NEW: Handle Checkbox Click ---
+        // Handle Checkbox Click
         if (target.type === 'checkbox') {
             const taskItem = target.closest('li');
             const taskId = parseInt(taskItem.dataset.taskId);
@@ -70,11 +69,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ employeeId, taskId })
                 });
-                // Visually update immediately without a full re-render for speed
                 taskItem.classList.toggle('completed');
             } catch (error) {
                 alert('فشل تحديث المهمة. حاول مرة أخرى.');
-                // Revert visual change on error
                 target.checked = !target.checked;
             }
         }
@@ -82,25 +79,38 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handle Leave Button
         if (target.classList.contains('leave-btn')) {
             const password = prompt('لتغيير حالة الإجازة، الرجاء إدخال كلمة سر المدير:');
-            if (password) { /* ... (rest of the code is the same) */ }
+            if (password) {
+                try {
+                    const response = await fetch('/api/leave', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ employeeId, password })
+                    });
+                     if (!response.ok) throw new Error((await response.json()).message);
+                    fetchDataAndRender();
+                } catch (error) {
+                    alert(`خطأ: ${error.message}`);
+                }
+            }
         }
-
+        
+        // === الكود الذي تم إصلاحه ===
         // Handle Delete Button
         if (target.classList.contains('delete-task-btn')) {
              const password = prompt('لحذف المهمة، الرجاء إدخال كلمة سر المدير:');
              if(password) {
-                // To keep the code clean, we'll just re-render on delete
                 try {
                     const taskItem = target.closest('li');
-                    const taskId = taskItem.dataset.taskId;
-                    await fetch(`/api/tasks/${employeeId}/${taskId}`, {
+                    const taskId = parseInt(taskItem.dataset.taskId);
+                    const response = await fetch(`/api/tasks/delete`, {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ password }) // Not ideal, but works for this case
+                        body: JSON.stringify({ employeeId, taskId, password })
                     });
-                    fetchDataAndRender(); // Re-render the whole UI
+                    if (!response.ok) throw new Error((await response.json()).message);
+                    fetchDataAndRender();
                 } catch(error) {
-                    alert('فشل الحذف');
+                    alert(`فشل الحذف: ${error.message}`);
                 }
              }
         }
@@ -108,7 +118,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.addEventListener('submit', async function(e) {
         if (e.target.classList.contains('add-task-form')) {
-            /* ... (this part of the code is the same) */
             e.preventDefault();
             const card = e.target.closest('.employee-card');
             const employeeId = parseInt(card.dataset.employeeId);
@@ -135,6 +144,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     fetchDataAndRender();
-    // Refresh data every 30 seconds to see updates from others
-    setInterval(fetchDataAndRender, 30000); 
 });
