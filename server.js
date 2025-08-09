@@ -12,10 +12,9 @@ const publicPath = path.resolve(process.cwd(), 'public');
 app.use(express.static(publicPath));
 
 
-// دالة لإنشاء الجداول وإدخال الموظفين لأول مرة فقط
+// دالة لإنشاء الجداول والتأكد من وجود كل الموظفين
 async function initializeDatabase() {
     try {
-        // إنشاء جدول الموظفين إذا لم يكن موجوداً
         await sql`
             CREATE TABLE IF NOT EXISTS employees (
                 id SERIAL PRIMARY KEY,
@@ -24,7 +23,6 @@ async function initializeDatabase() {
                 on_leave BOOLEAN DEFAULT FALSE
             );
         `;
-        // إنشاء جدول المهام إذا لم يكن موجوداً
         await sql`
             CREATE TABLE IF NOT EXISTS tasks (
                 id BIGINT PRIMARY KEY,
@@ -34,24 +32,21 @@ async function initializeDatabase() {
             );
         `;
         
-        // إضافة الموظفين الأساسيين والتأكد من وجودهم
-        const employees = [
-            { id: 1, name: 'سجدة', shift: 'morning' },
-            { id: 2, name: 'بسمة', shift: 'morning' },
-            { id: 3, name: 'محمد', shift: 'morning' },
-            { id: 4, name: 'عبدالرحمن', shift: 'night' },
-            { id: 5, name: 'أحمد', shift: 'night' },
-            { id: 6, name: 'إبراهيم', shift: 'night' }
-        ];
-
-        for (const emp of employees) {
-            // === هذا هو السطر الذي تم تعديله ليقوم بالتحديث أو الإضافة ===
-            await sql`
-                INSERT INTO employees (id, name, shift)
-                VALUES (${emp.id}, ${emp.name}, ${emp.shift})
-                ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, shift = EXCLUDED.shift;
-            `;
-        }
+        // === هذا هو الجزء الذي تم تعديله ليصبح أكثر قوة ===
+        // إرسال قائمة كاملة بالموظفين في أمر واحد
+        await sql`
+            INSERT INTO employees (id, name, shift) VALUES
+            (1, 'سجدة', 'morning'),
+            (2, 'بسمة', 'morning'),
+            (3, 'محمد', 'morning'),
+            (4, 'عبدالرحمن', 'night'),
+            (5, 'أحمد', 'night'),
+            (6, 'إبراهيم', 'night')
+            ON CONFLICT (id) DO UPDATE SET
+              name = EXCLUDED.name,
+              shift = EXCLUDED.shift;
+        `;
+        
         console.log('Database schema and employees verified successfully.');
     } catch (error) {
         console.error('Error initializing database:', error);
