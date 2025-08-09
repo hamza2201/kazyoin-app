@@ -10,11 +10,17 @@ const dbPath = path.join('/tmp', 'database.json');
 
 // إعداد الخادم
 app.use(express.json());
-// Serve the main page
-app.use(express.static('public'));
+
+// --- هذا هو الجزء الذي تم إصلاحه ---
+// Vercel تقوم بنسخ محتويات مجلد public إلى جذر المشروع عند النشر
+// لذلك نخبر الخادم صراحة بتقديم هذه الملفات
+const publicPath = path.resolve(process.cwd(), 'public');
+app.use(express.static(publicPath));
+// ------------------------------------
+
+
 // دالة لتهيئة قاعدة البيانات في Vercel
 function initializeDatabase() {
-    // Vercel تضمن وجود مجلد /tmp
     if (!fs.existsSync(dbPath)) {
         console.log("Creating database file at:", dbPath);
         const initialData = {
@@ -33,7 +39,7 @@ function initializeDatabase() {
 
 // قراءة وكتابة البيانات
 function readData() {
-    initializeDatabase(); // تأكد من وجود الملف قبل القراءة
+    initializeDatabase();
     const data = fs.readFileSync(dbPath, 'utf-8');
     return JSON.parse(data);
 }
@@ -42,7 +48,6 @@ function writeData(data) {
 }
 
 // ----- نقاط الوصول (APIs) -----
-// كل الطلبات التي تبدأ بـ /api/ سيتم التعامل معها هنا
 
 app.get('/api/data', (req, res) => {
     res.json(readData());
@@ -75,8 +80,6 @@ app.post('/api/tasks/toggle', (req, res) => {
         res.status(404).json({ message: 'لم يتم العثور على المهمة' });
     }
 });
-
-// ... يمكنك إضافة باقي الأكواد الخاصة بالحذف والإجازة هنا بنفس الطريقة ...
 
 // تصدير التطبيق لمنصة Vercel
 module.exports = app;
