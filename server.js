@@ -130,8 +130,5 @@ setInterval(() => {
     }
 }, 60000);
 
-// تشغيل الخادم
-app.listen(PORT, () => {
-    initializeDatabase();
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
+// تصدير التطبيق لمنصة Vercel
+module.exports = app;
