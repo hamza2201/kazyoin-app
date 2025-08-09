@@ -5,26 +5,17 @@ const path = require('path');
 const app = express();
 
 const MANAGER_PASSWORD = process.env.MANAGER_PASSWORD || 'kazyoin-admin-2025';
-const dbPath = path.join(__dirname, '..', 'tmp', 'database.json'); // مسار معدل ليتوافق مع Vercel
+// المسار الصحيح والم الوحيد الذي يمكن الكتابة فيه على Vercel
+const dbPath = path.join('/tmp', 'database.json'); 
 
 // إعداد الخادم
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'public'))); // مسار معدل ليتوافق مع Vercel
-
-// -- هذا هو السطر الجديد والمهم لإصلاح المشكلة --
-// إرسال ملف الواجهة الرئيسي عند طلب الرابط الأساسي
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
-
 
 // دالة لتهيئة قاعدة البيانات في Vercel
 function initializeDatabase() {
-    const dir = path.join(__dirname, '..', 'tmp');
-    if (!fs.existsSync(dir)){
-        fs.mkdirSync(dir, { recursive: true });
-    }
+    // Vercel تضمن وجود مجلد /tmp
     if (!fs.existsSync(dbPath)) {
+        console.log("Creating database file at:", dbPath);
         const initialData = {
             employees: [
                 { id: 1, name: 'سجدة', shift: 'morning', onLeave: false, tasks: [] },
@@ -50,6 +41,7 @@ function writeData(data) {
 }
 
 // ----- نقاط الوصول (APIs) -----
+// كل الطلبات التي تبدأ بـ /api/ سيتم التعامل معها هنا
 
 app.get('/api/data', (req, res) => {
     res.json(readData());
@@ -83,7 +75,7 @@ app.post('/api/tasks/toggle', (req, res) => {
     }
 });
 
-// ... باقي الأكواد الخاصة بالحذف والإجازة ...
+// ... يمكنك إضافة باقي الأكواد الخاصة بالحذف والإجازة هنا بنفس الطريقة ...
 
 // تصدير التطبيق لمنصة Vercel
 module.exports = app;
