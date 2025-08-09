@@ -14,6 +14,9 @@ body {
     color: var(--text-color);
     margin: 0;
     padding: 20px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
 header {
@@ -36,6 +39,7 @@ header p {
     display: flex;
     flex-direction: column;
     gap: 40px;
+    flex-grow: 1; /* Makes the main content grow to fill space */
 }
 
 .shift-section h2 {
@@ -106,10 +110,9 @@ header p {
     margin-bottom: 8px;
     border-radius: 6px;
     background-color: rgba(0, 0, 0, 0.2);
-    cursor: pointer; /* Makes the whole item clickable */
+    cursor: pointer;
 }
 
-/* === NEW STYLES START === */
 .task-list li input[type="checkbox"] {
     margin-left: 15px;
     min-width: 18px;
@@ -127,8 +130,6 @@ header p {
     text-decoration: line-through;
     color: var(--text-color-secondary);
 }
-/* === NEW STYLES END === */
-
 
 .delete-task-btn {
     background: none;
@@ -172,4 +173,13 @@ header p {
     color: #121212;
     font-weight: bold;
     cursor: pointer;
+}
+
+#copyright {
+    text-align: center;
+    margin-top: 50px;
+    padding-top: 20px;
+    color: var(--text-color-secondary);
+    font-size: 0.9rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }

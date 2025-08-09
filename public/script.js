@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Set Copyright Year
+    const yearSpan = document.getElementById('currentYear');
+    if (yearSpan) {
+        yearSpan.textContent = new Date().getFullYear();
+    }
+
     const morningContainer = document.getElementById('morning-employees');
     const nightContainer = document.getElementById('night-employees');
     const dateElement = document.getElementById('currentDate');
@@ -94,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // === الكود الذي تم إصلاحه ===
         // Handle Delete Button
         if (target.classList.contains('delete-task-btn')) {
              const password = prompt('لحذف المهمة، الرجاء إدخال كلمة سر المدير:');
@@ -105,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const response = await fetch(`/api/tasks/delete`, {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ employeeId, taskId, password })
+                        body: JSON.stringify({ taskId, password })
                     });
                     if (!response.ok) throw new Error((await response.json()).message);
                     fetchDataAndRender();
