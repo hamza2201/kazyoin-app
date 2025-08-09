@@ -10,7 +10,8 @@ const dbPath = path.join('/tmp', 'database.json');
 
 // إعداد الخادم
 app.use(express.json());
-
+// Serve the main page
+app.use(express.static('public'));
 // دالة لتهيئة قاعدة البيانات في Vercel
 function initializeDatabase() {
     // Vercel تضمن وجود مجلد /tmp
